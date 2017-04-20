@@ -4,10 +4,11 @@
 
 float* quantizationTable = new float[256];
 float* jcFuncTable = new float[65536];
+float* jcFuncTable2 = new float[65536];
 
 
 void initializeQuantizationTable(){
-    for(int i = 255; i; i--){
+    for(int i = 0; !(i >> 8); i++){
         quantizationTable[i] = (i + 0.5f)/256.0f;
     }
 }
@@ -15,27 +16,48 @@ void initializeQuantizationTable(){
 void initializeJcFunc(){
     float a, x, p, q, t;
     int indexUpper;
-    for(int i = 255; i; i--){
-        a = quantizationTable[i];
+    for(int i = 0; !(i >> 8); i++){
         indexUpper = i << 8;
-        for(int j = 255; j; j--){
+        a = quantizationTable[i];
+        p = a*a;
+        q = (1-a)*(1-a);
+        t = 1-2*a;
+        for(int j = 0; !(j >> 8); j++){
             x = quantizationTable[j];
-            p = a*a;
-            q = (1-a)*(1-a);
-            t = 1-2*a;
             jcFuncTable[indexUpper | j] = p*x/(q-t*x);
         }
     }
 }
 
-
+void initializeJcFunc2(){
+    float a, x, p, p1, p2, q, t;
+    int indexUpper;
+    for(int i = 0; !(i >> 8); i++){
+        indexUpper = i << 8;
+        a = quantizationTable[i];
+        p = a*a;
+        q = (1-a)*(1-a);
+        t = 1-2*a;
+        p1 = p+t;
+        p2 = p-t;
+        for(int j = 0; !(j >> 7); j++){
+            x = quantizationTable[j];
+            jcFuncTable2[indexUpper | j] = p1*x/(q+t*(2*x-1));
+        }
+        for(int j = 128; !(j >> 8); j++){
+            x = quantizationTable[j];
+            jcFuncTable2[indexUpper | j] = (p2*x+t)/(q-t*(2*x-1));
+        }
+    }
+}
 
 extern "C"
-JNIEXPORT jstring JNICALL
+JNIEXPORT void JNICALL
 
-Java_com_folk_folk_MainActivity_stringFromJNI(
+Java_com_folk_folk_AppDelegate_initialize(
         JNIEnv *env,
         jobject /* this */) {
-    std::string hello = "Hello from C++";
-    return env->NewStringUTF(hello.c_str());
+    initializeQuantizationTable();
+    initializeJcFunc();
+    initializeJcFunc2();
 }
